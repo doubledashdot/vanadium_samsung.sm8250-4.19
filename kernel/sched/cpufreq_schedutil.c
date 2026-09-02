@@ -10,9 +10,6 @@
 
 #include "sched.h"
 
-#include <linux/sched/cpufreq.h>
-#include <trace/events/power.h>
-
 #define IOWAIT_BOOST_MIN	(SCHED_CAPACITY_SCALE / 8)
 
 DEFINE_PER_CPU_READ_MOSTLY(unsigned long, response_time_mult);

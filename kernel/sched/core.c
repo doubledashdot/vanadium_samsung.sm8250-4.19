@@ -1952,6 +1952,7 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
 	struct rq_flags rf;
 	struct rq *rq;
 	int ret = 0;
+
 	rq = task_rq_lock(p, &rf);
 	update_rq_clock(rq);
 
