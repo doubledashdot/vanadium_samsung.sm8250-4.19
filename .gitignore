@@ -147,3 +147,6 @@ noKernel/
 out/
 tc/
 *.zip
+
+# external dependencies
+arch/arm64/boot/dts/*

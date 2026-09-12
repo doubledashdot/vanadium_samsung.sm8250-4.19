@@ -24,10 +24,9 @@ subdir-y += socionext
 subdir-y += sprd
 subdir-y += synaptics
 subdir-y += ti
+subdir-y += samsung-vanadium
 subdir-y += xilinx
 subdir-y += zte
-subdir-y += samsung
-
 
 dtstree		:= $(srctree)/$(src)
 
