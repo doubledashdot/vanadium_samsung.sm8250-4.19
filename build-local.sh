@@ -1,202 +1,50 @@
 #!/usr/bin/env bash
-
-SECONDS=0 # builtin bash timer
-
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-# Available models
-VALID_MODELS=("bloomxq" "c1q" "c2q" "f2q" "gts7l" "gts7lwifi" "gts7xl" "gts7xlwifi" "r8q" "x1q" "y2q" "z3q")
-
-VALID_ADDITIONALS=("stock" "ksu" "ksu+permissive")
-
-# Prompt function
-prompt() {
-    echo "=============================================="
-    echo "$1"
-    echo "=============================================="
-    shift
-    for option in "$@"; do
-        echo "$option"
-    done
-    echo "=============================================="
-}
-
-# Validate input
-validate_choice() {
-    local choice="$1"
-    shift
-    local valid_values=("$@")
-
-    for value in "${valid_values[@]}"; do
-        if [[ "$choice" == "$value" ]]; then
-            return 0
-        fi
-    done
-
-    return 1
-}
-
-
-# Model selection
-prompt "Which project do you want to build?" "${VALID_MODELS[@]}"
-read -p " - Enter your choice: " model_choice
-model_choice=$(echo "$model_choice" | tr '[:upper:]' '[:lower:]')
-
-if ! validate_choice "$model_choice" "${VALID_MODELS[@]}"; then
-    echo "Invalid model choice! Exiting."
-    exit 1
-fi
-
-# Aditional configs selection
-prompt "Do you want to build with ksu/permissive?" "${VALID_ADDITIONALS[@]}"
-read -p " - Enter your choice: " add_choice
-add_choice=$(echo "$add_choice" | tr '[:upper:]' '[:lower:]')
-
-if ! validate_choice "$add_choice" "${VALID_ADDITIONALS[@]}"; then
-    echo "Invalid build add-on! Exiting."
-    exit 1
-fi
-
-# Target properties
-MODEL=$model_choice
-export PROJECT_NAME="${MODEL}"
-PROJECT_CONFIG="vendor/samsung/${MODEL}.config"
-
-[ -z "${PLATFORM_VERSION}" ] && export PLATFORM_VERSION=11
-
-ZIPNAME="$(date '+%Y%m%d').zip"
-PLATFORM_DEFCONFIG="vendor/kona-perf_defconfig"
-COMMON_DEFCONFIG="vendor/samsung/kona-sec-common.config"
-
-# Additionals configurations switch
-case "$add_choice" in
-    stock)
-        ZIPNAME="not-$ZIPNAME"
-        EXTRA_CONFIG="vendor/not/localversion.config"
-        ;;
-    ksu)
-        ZIPNAME="not-ksu-$ZIPNAME"
-        EXTRA_CONFIG="vendor/not/ksu.config vendor/not/localversion.config"
-        ;;
-    ksu)
-        ZIPNAME="not-ksu-permissive-$ZIPNAME"
-        EXTRA_CONFIG="vendor/not/ksu.config vendor/not/localversion.config vendor/not/permissive.config"
-        ;;
+# good luck, you will need it :)
+SECONDS=0;G=$'\033[0;32m';R=$'\033[0;31m';Y=$'\033[1;33m';B=$'\033[0;34m';C=$'\033[0;36m';N=$'\033[0m'
+A=(bloomxq c1q c2q f2q gts7l gts7lwifi gts7xl gts7xlwifi r8q x1q y2q z3q);Z=(stock ksu ksu+permissive)
+Q="$(pwd)";U=https://github.com/notkernel-oss/AnyKernel3;T="$Q/tc/clang";O="$Q/out";H="$O/arch/arm64/boot";D="$H/dts/vendor/qcom";L="$O/build.log";E=65;P=;V=0;X=0;TTY=0;[[ -t 1 ]]&&TTY=1
+p(){ echo "==============================================";echo "$1";shift;for x;do echo "$x";done;echo "=============================================="; }
+v(){ local x=$1;shift;for y;do [[ $x == "$y" ]]&&return 0;done;return 1; }
+l(){ printf '%s\n' "$*" >>"$L"; }
+h(){ ((TTY))&&printf '\033[?25l'; }
+s(){ ((TTY))&&printf '\033[?25h'; }
+k(){ local p=$1;[[ -z $p ]]&&return 0;kill -TERM -- "-$p" 2>/dev/null||:;kill -TERM "$p" 2>/dev/null||:;sleep .25;kill -KILL -- "-$p" 2>/dev/null||:;kill -KILL "$p" 2>/dev/null||:; }
+d(){ ((TTY))||return 0;((V))&&printf '\033[%dA' "$((E+1))";local a=() n i;mapfile -t a < <(tail -n "$E" "$L" 2>/dev/null);n=${#a[@]};for((i=0;i<E;i++));do printf '\r\033[K';((i<n))&&printf '%s' "${a[i]}";printf '\n';done;printf '\r\033[K%b%s [%s]%b' "$C" "$1" "$2" "$N";V=1; }
+c(){ ((TTY))||return 0;((V))||return 0;printf '\033[%dA' "$((E+1))";for((i=0;i<E+1;i++));do printf '\r\033[K';((i<E))&&printf '\n';done;printf '\033[%dA' "$((E+1))";V=0; }
+q(){ trap - INT TERM;X=1;if [[ -n $P ]];then c;s;printf '%b\n' "${Y}Stopping build...${N}";k "$P";wait "$P" 2>/dev/null||:;P=;fi;c;s;l "";l "==============================================";l "BUILD CANCELLED BY USER";l "==============================================";printf '\n%b\n' "${R}✗ Build cancelled by user.${N}";printf '%b\n' "${Y}Log: $L${N}";exit 130; }
+trap q INT TERM
+r(){ local m=$1;shift;((X))&&return 130;l "";l ">>> $m";l ">>> Command: $*";l "";local w='-\|/' j=0 z;setsid "$@" >>"$L" 2>&1 & P=$!;h;d "$m" "${w:j:1}";while kill -0 "$P" 2>/dev/null;do sleep .15;j=$(( (j+1)%4 ));d "$m" "${w:j:1}";done;wait "$P";z=$?;P=;c;s;if [[ $z -ne 0 ]];then printf '%b\n' "${R}✗${N} $m";l "";l "!!! FAILED: $m";l "!!! Exit code: $z";return "$z";fi;printf '%b\n' "${G}✓${N} $m";l ">>> Completed: $m";return 0; }
+p "Which project do you want to build?" "${A[@]}";read -r -p " - Enter your choice: " m;m=$(printf '%s' "$m"|tr '[:upper:]' '[:lower:]');v "$m" "${A[@]}"||{ echo "Invalid model choice! Exiting.";exit 1; }
+p "Do you want to build with ksu/permissive?" "${Z[@]}";read -r -p " - Enter your choice: " a;a=$(printf '%s' "$a"|tr '[:upper:]' '[:lower:]');v "$a" "${Z[@]}"||{ echo "Invalid build add-on! Exiting.";exit 1; };echo "=============================================="
+M=$m;export PROJECT_NAME="$M";PC="vendor/samsung/${M}.config";[[ -z ${PLATFORM_VERSION:-} ]]&&export PLATFORM_VERSION=11;PD=vendor/kona-perf_defconfig;CD=vendor/samsung/kona-sec-common.config;W="$(date '+%Y%m%d').zip"
+case $a in
+stock) W="not-$W";EX="vendor/not/localversion.config";;
+ksu) W="not-ksu-$W";EX="vendor/not/ksu.config vendor/not/localversion.config";;
+ksu+permissive) W="not-ksu-permissive-$W";EX="vendor/not/ksu.config vendor/not/localversion.config vendor/not/permissive.config";;
 esac
-
-DEFCONFIG="$PLATFORM_DEFCONFIG $COMMON_DEFCONFIG $PROJECT_CONFIG $EXTRA_CONFIG"
-
-
-# Paths
-AK3_REPO="https://github.com/notkernel-oss/AnyKernel3"
-AK3_BRANCH="$MODEL"
-
-TC_DIR="$(pwd)/tc/clang"
-OUT_DIR="$(pwd)/out"
-BOOT_DIR="$OUT_DIR/arch/arm64/boot"
-DTS_DIR="$BOOT_DIR/dts/vendor/qcom"
-
-# smth
-if test -z "$(git rev-parse --show-cdup 2>/dev/null)" &&
-   head=$(git rev-parse --verify HEAD 2>/dev/null); then
-    ZIPNAME="${ZIPNAME::-4}-$(echo $head | cut -c1-8)-$MODEL.zip"
-fi
-
-git submodule update --init --recursive
-
-export PATH="$TC_DIR/bin:$PATH"
-
-# Toolchain setup
-if ! [ -d "$TC_DIR" ]; then
-    echo -e "${YELLOW}Clang not found! Downloading...${NC}"
-    mkdir -p "$TC_DIR"
-
-    ASSET_URL=$(
-        curl -fsSL https://api.github.com/repos/Neutron-Toolchains/clang-build-catalogue/releases/latest |
-        jq -r '.assets[]
-            | select(.name | endswith(".tar.zst"))
-            | .browser_download_url' |
-        head -n1
-    )
-
-    if [ -z "$ASSET_URL" ]; then
-        echo -e "${RED}Failed to find latest release!${NC}"
-        exit 1
-    fi
-
-    if ! curl -L "$ASSET_URL" | tar --zstd -x -C "$TC_DIR" --strip-components=1; then
-        echo -e "${RED}Download failed!${NC}"
-        exit 1
-    fi
-
-    echo -e "${GREEN}Clang ready!${NC}"
-fi
-
-mkdir -p out
-
-echo -e "${BLUE}Building with: $DEFCONFIG${NC}"
-
-make O=out ARCH=arm64 $DEFCONFIG
-make O=out ARCH=arm64 olddefconfig
-
-# Common make flags
-MAKE_ARGS="-j$(nproc --all) O=out ARCH=arm64 \
-CC=clang LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm \
-OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
-CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-LLVM=1 LLVM_IAS=1"
-
-echo -e "\n${GREEN}Starting compilation...${NC}"
-
-rm -rf out/arch/arm64/boot #ok
-
-make $MAKE_ARGS dtbo.img
-make $MAKE_ARGS Image.gz
-
-
-# Post build checks
-if [ ! -f "$BOOT_DIR/Image.gz" ]; then
-    echo -e "${RED}Compilation failed!${NC}"
-    exit 1
-fi
-
-echo -e "${GREEN}Kernel Image found!${NC}"
-
-if [ ! -d "$DTS_DIR" ]; then
-    echo -e "${RED}DTS directory missing!${NC}"
-    exit 1
-fi
-
-echo -e "${BLUE}Generating DTB...${NC}"
-cat $(find "$DTS_DIR" -name "*.dtb" | sort) > "$BOOT_DIR/dtb"
-
-if [ ! -f "$BOOT_DIR/dtb" ]; then
-    echo -e "${RED}DTB generation failed!${NC}"
-    exit 1
-fi
-
-echo -e "${GREEN}DTB + DTBO ready!${NC}"
-
-
-# AK3
-rm -rf AnyKernel3
-echo "[*] Cloning AnyKernel3..."
-git clone -q -b "$AK3_BRANCH" "$AK3_REPO" AnyKernel3 || exit 1
-
-cp "$BOOT_DIR/dtbo.img" AnyKernel3/
-cp "$BOOT_DIR/Image.gz" AnyKernel3/
-cp "$BOOT_DIR/dtb" AnyKernel3/
-
-# remove older builds
-rm -rf *.zip
-
-cd AnyKernel3
-zip -r9 "../$ZIPNAME" * -x .git README.md *placeholder
-cd ..
-
-echo -e "\n${GREEN}Completed in $((SECONDS / 60))m $((SECONDS % 60))s${NC}"
-echo -e "${GREEN}Zip: $ZIPNAME${NC}"
+DF="$PD $CD $PC $EX"
+if git rev-parse --verify HEAD >/dev/null 2>&1;then F=$(git rev-parse HEAD);S=$(git rev-parse --short=8 HEAD);else F=unknown;S=unknown;fi;[[ $F != unknown ]]&&W="${W::-4}-${S}-${M}.zip"
+mkdir -p "$O";rm -f "$L";touch "$L"||{ printf '%b\n' "${R}Unable to create build log!${N}";exit 1; }
+l "==============================================";l "Kernel Build Log";l "==============================================";l "Started    : $(date)";l "Model      : $M";l "Addon      : $a";l "Commit     : $F";l "Short Hash : $S";l "Platform   : $PLATFORM_VERSION";l "Defconfig  : $DF";l "ZIP        : $W";l "==============================================";l ""
+printf '\n';printf '%b\n' "${B}==============================================${N}";printf '%b\n' "${B}              (not) kernel build${N}";printf '%b\n' "${B}==============================================${N}";printf 'Model : %s\n' "$M";printf 'Addon : %s\n' "$a";printf 'Commit: %s\n' "$S";printf 'Log   : %s\n' "$L";printf '%b\n' "${B}==============================================${N}";printf '\n'
+r "Updating git submodules" git submodule update --init --recursive||exit 1;export PATH="$T/bin:$PATH"
+if [[ ! -x "$T/bin/clang" ]];then
+printf '%b\n' "${Y}Clang not found! Downloading...${N}";mkdir -p "$T";l "";l ">>> Finding latest Neutron Clang release"
+J="$(curl -fsSL https://api.github.com/repos/Neutron-Toolchains/clang-build-catalogue/releases/latest|jq -r '.assets[]|select(.name|endswith(".tar.zst"))|.browser_download_url'|head -n1)";printf '%s\n' "$J">>"$L"
+[[ -z $J ]]&&{ printf '%b\n' "${R}✗ Failed to find latest release!${N}";l "Failed to find latest Clang release.";exit 1; }
+r "Downloading Clang toolchain" bash -c 'curl -L "$1"|tar --zstd -x -C "$2" --strip-components=1' _ "$J" "$T"||exit 1;printf '%b\n' "${G}✓${N} Clang ready!"
+else printf '%b\n' "${G}✓${N} Clang toolchain found";fi
+printf '\n';printf '%b\n' "${B}Build configuration:${N}";printf '  Model      : %s\n' "$M";printf '  Addon      : %s\n' "$a";printf '  Defconfig  : %s\n' "$DF";printf '  Toolchain  : %s\n' "$T";printf '\n'
+DA=("O=out" "ARCH=arm64");for x in $DF;do DA+=("$x");done;r "Generating kernel configuration" make "${DA[@]}"||exit 1;r "Running olddefconfig" make O=out ARCH=arm64 olddefconfig||exit 1
+MA=("-j$(nproc --all)" O=out ARCH=arm64 CC=clang LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1)
+l "";l ">>> Removing previous boot output";rm -rf "$H"||{ printf '%b\n' "${R}✗ Failed to clean boot directory${N}";exit 1; }
+printf '%b\n' "${G}Starting compilation...${N}";printf '\n';r "Building DTB and DTBO images" make "${MA[@]}" dtbo.img||exit 1
+[[ -d "$D" ]]||{ printf '%b\n' "${R}✗ DTS directory missing: $D${N}";l "DTS directory missing: $D";exit 1; }
+l "";l ">>> Generating DTB";cat $(find "$D" -type f -name "*.dtb"|sort)>"$H/dtb";printf '%b\n' "${G}✓${N} DTB + DTBO ready!";l "";l ">>> Generating Kernel";r "Building Kernel Image" make "${MA[@]}" Image.gz||exit 1
+[[ -f "$H/Image.gz" ]]||{ printf '%b\n' "${R}✗ Compilation failed: Image.gz missing${N}";l "Image.gz missing after compilation.";exit 1; };printf '%b\n' "${G}✓${N} Kernel Image found!"
+if [[ -d "$Q/AnyKernel3" ]];then printf '%b\n' "${G}✓${N} AnyKernel3 found! Skipping clone.";l "AnyKernel3 found. Skipping clone.";else r "Cloning AnyKernel3" git clone -q -b "$M" "$U" "$Q/AnyKernel3"||exit 1;fi
+rm -f "$Q/AnyKernel3/dtbo.img" "$Q/AnyKernel3/Image.gz" "$Q/AnyKernel3/dtb";r "Copying kernel files" cp "$H/dtbo.img" "$H/Image.gz" "$H/dtb" "$Q/AnyKernel3/"||exit 1;rm -f "$Q"/*.zip;clear
+r "Creating flashable ZIP" bash -c 'cd "$1"||exit 1;zip -r9 "../$2" * -x .git -x README.md -x "*placeholder"' _ "$Q/AnyKernel3" "$W"||exit 1
+[[ -f "$Q/$W" ]]||{ printf '%b\n' "${R}✗ ZIP was not created${N}";l "ZIP was not created.";exit 1; };printf '%b\n' "${G}✓${N} Flashable ZIP created"
+BT="$((SECONDS/60))m $((SECONDS%60))s";l "";l "==============================================";l "BUILD SUCCESSFUL";l "==============================================";l "ZIP        : $W";l "Build time : $BT";l "Finished   : $(date)";l "Log        : $L";l "=============================================="
+printf '\n';printf '%b\n' "${G}==============================================${N}";printf '%b\n' "${G}             BUILD SUCCESSFUL${N}";printf '%b\n' "${G}==============================================${N}";printf 'Model      : %s\n' "$M";printf 'Addon      : %s\n' "$a";printf 'Commit     : %s\n' "$S";printf 'Zip        : %s\n' "$W";printf 'Build time : %s\n' "$BT";printf 'Build log  : %s\n' "$L";printf '%b\n' "${G}==============================================${N}"
