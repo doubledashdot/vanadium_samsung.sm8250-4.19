@@ -1240,12 +1240,12 @@ static int override_release(char __user *release, size_t len)
 	return ret;
 }
 
-#define FAKE_UNAME "5.10.241"
+#define FAKE_UNAME "6.1.183"
+
+#define FAKE_ART_UNAME "6.1.183"
 
 #if 0
 // target fake uname's we'll hopefully use in the future.
-#define FAKE_UNAME "5.15.190"
-#define FAKE_UNAME "6.1.149"
 #define FAKE_UNAME "6.6.103"
 #define FAKE_UNAME "6.12.44"
 #endif
@@ -1261,6 +1261,29 @@ static __always_inline bool should_spoof_uname(const char *comm)
 		!strncmp(comm, "uprobestats", 11));
 }
 
+static __always_inline bool spoof_art_daemon(struct task_struct *task)
+{
+	const char *comm = task->group_leader->comm;
+	bool match = false;
+	struct file *exe_file;
+
+	if (!strncmp(comm, "zygote", 6) ||
+	    !strncmp(comm, "dex2oat", 7) ||
+	    !strncmp(comm, "odrefresh", 9) ||
+	    (!strcmp(comm, "main") && task->real_parent && task->real_parent->pid == 1)) {
+		return true;
+	}
+
+	exe_file = get_task_exe_file(task);
+	if (exe_file) {
+		const char *name = exe_file->f_path.dentry->d_name.name;
+		if (name && (!strncmp(name, "app_process", 11) ||
+			     !strncmp(name, "dex2oat", 7)))
+			match = true;
+		fput(exe_file);
+	}
+	return match;
+}
 
 SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
 {
@@ -1268,12 +1291,25 @@ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
 
 	down_read(&uts_sem);
 	memcpy(&tmp, utsname(), sizeof(tmp));
+	up_read(&uts_sem);
+
+	if (unlikely(spoof_art_daemon(current))) {
+		const char *dash = strchr(utsname()->release, '-');
+		if (dash)
+			snprintf(tmp.release, sizeof(tmp.release), "%s%s", FAKE_ART_UNAME, dash);
+		else
+			strscpy(tmp.release, FAKE_ART_UNAME, sizeof(tmp.release));
+		
+		if (copy_to_user(name, &tmp, sizeof(tmp)))
+			return -EFAULT;
+		return 0;
+	}
 
 	if (unlikely(should_spoof_uname(current->comm))) {
 		strscpy(tmp.release, FAKE_UNAME, sizeof(tmp.release));
 		pr_info("fake uname: %s (pid=%d) release=%s\n", current->comm, current->pid, tmp.release);
 	}
-	up_read(&uts_sem);
+
 	if (copy_to_user(name, &tmp, sizeof(tmp)))
 		return -EFAULT;
 
